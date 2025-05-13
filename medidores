@@ -2,5 +2,5 @@ git init
 git add .
 git commit -m "Primer commit backend"
 git branch -M main
-git remote add origin https://github.com/tu_usuario/app-medidores-backend.git
+git remote add origin https://github.com/mvenagli@gmail.com/app-medidores-backend.git
 git push -u origin main
