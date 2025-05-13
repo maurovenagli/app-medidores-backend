@@ -113,6 +113,11 @@ app.get('/api/readings', async (req, res) => {
 });
 
 ////////////////////////
+
+git add package.json package-lock.json
+git commit -m "Agregado package.json y dependencias"
+git push origin main
+
 // 7. Inicialización del servidor
 ////////////////////////
 const PORT = process.env.PORT || 3000;
