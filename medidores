@@ -1,3 +1,122 @@
+
+// BACKEND COMPLETO - Node.js + Express + MongoDB + OAuth
+
+////////////////////////
+// 1. Inicialización y dependencias
+////////////////////////
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+require('dotenv').config();
+
+const app = express();
+app.use(cors({ origin: true, credentials: true }));
+app.use(express.json());
+app.use(session({ secret: 'water-meter-secret', resave: false, saveUninitialized: false }));
+app.use(passport.initialize());
+app.use(passport.session());
+
+////////////////////////
+// 2. Conexión a MongoDB
+////////////////////////
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/water_readings', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+////////////////////////
+// 3. Modelos de Mongoose
+////////////////////////
+const Reading = mongoose.model('Reading', new mongoose.Schema({
+  userId: String,
+  meter: String,
+  batch: String,
+  value: String,
+  date: String
+}));
+
+const User = mongoose.model('User', new mongoose.Schema({
+  googleId: String,
+  name: String,
+  email: String
+}));
+
+////////////////////////
+// 4. OAuth con Google
+////////////////////////
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: '/auth/google/callback'
+}, async (accessToken, refreshToken, profile, done) => {
+  let user = await User.findOne({ googleId: profile.id });
+  if (!user) {
+    user = await User.create({
+      googleId: profile.id,
+      name: profile.displayName,
+      email: profile.emails[0].value
+    });
+  }
+  return done(null, user);
+}));
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser((id, done) => {
+  User.findById(id, (err, user) => {
+    done(err, user);
+  });
+});
+
+////////////////////////
+// 5. Rutas de autenticación
+////////////////////////
+app.get('/auth/google', passport.authenticate('google', {
+  scope: ['profile', 'email']
+}));
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/' }),
+  (req, res) => {
+    res.redirect('/');
+  });
+
+app.get('/auth/logout', (req, res) => {
+  req.logout(() => {
+    res.redirect('/');
+  });
+});
+
+app.get('/auth/user', (req, res) => {
+  res.send(req.user);
+});
+
+////////////////////////
+// 6. API de lecturas
+////////////////////////
+app.post('/api/readings', async (req, res) => {
+  if (!req.user) return res.status(401).send({ error: 'Unauthorized' });
+  const reading = new Reading({ ...req.body, userId: req.user.id });
+  await reading.save();
+  res.send({ success: true });
+});
+
+app.get('/api/readings', async (req, res) => {
+  if (!req.user) return res.status(401).send({ error: 'Unauthorized' });
+  const readings = await Reading.find({ userId: req.user.id });
+  res.send(readings);
+});
+
+////////////////////////
+// 7. Inicialización del servidor
+////////////////////////
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 git init
 git add .
 git commit -m "Primer commit backend"
